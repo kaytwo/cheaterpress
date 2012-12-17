@@ -36,7 +36,6 @@ class Board(object):
     return testboard
 
   def play_word(self,player,spaces):
-    print spaces
     for x,y in spaces:
       space = self.board[x,y]
       if space['owner'] != player and space['defended'] == False:
@@ -50,49 +49,49 @@ class Board(object):
         # top row
         if i == 0:
           pass
-        elif self.board[i-1,j] != owner:
+        elif self.board[i-1,j]['owner'] != owner:
             self.board[i,j]['defended'] = False
             continue
         # bottom row
         if i == 4:
           pass
-        elif self.board[i+1,j] != owner:
+        elif self.board[i+1,j]['owner'] != owner:
           self.board[i,j]['defended'] = False
           continue
         # left column
         if j == 0:
           pass
-        elif self.board[i,j-1] != owner:
+        elif self.board[i,j-1]['owner'] != owner:
           self.board[i,j]['defended'] = False
           continue
         if j == 4:
           pass
-        elif self.board[i,j+1] != owner:
+        elif self.board[i,j+1]['owner'] != owner:
           self.board[i,j]['defended'] = False
+          continue
         self.board[i,j]['defended'] = True
 
-  def game_over(self):
-    stats = defaultdict(int)
-    for i in range(5):
-      for j in range(5):
-        owner = self.board[i,j]['owner']
-        if owner == 'nobody':
-          return False
-        else:
-          stats[owner] += 1
-    return stats
-
+  @staticmethod
+  def hilite( is_player1, is_defended):
+      attr = []
+      if is_player1:
+          attr.append('35')
+      else:
+          attr.append('36')
+      if is_defended:
+          attr.append('47')
+      return '\x1b[%sm%%s\x1b[0m' % (';'.join(attr),)
+  
   def __str__(self):
     s = []
     for i in range(5):
       for j in range(5):
         fmtstr = '%s'
-        if not isatty:
-          fmtstr = '%s'
-        elif self.board[i,j]['owner'] == 'player1':
-          fmtstr = '\x1b[35m%s\x1b[0m'
-        elif self.board[i,j]['owner'] == 'player2':
-          fmtstr = '\x1b[36m%s\x1b[0m'
+        if not isatty or self.board[i,j]['owner'] == 'nobody':
+          pass
+        else:
+          fmtstr = self.hilite(self.board[i,j]['owner'] == 'player1',
+                          self.board[i,j]['defended'])
         s.append(fmtstr % self.board[i,j]['letter'])
       s.append('\n')
     return ''.join(s)
@@ -149,6 +148,20 @@ class Cheaterpress(object):
         for line in f.readlines():
           cls.words[line.strip()] = True
  
+  def game_over(self):
+    stats = defaultdict(int)
+    for i in range(5):
+      for j in range(5):
+        # should make this less ugly...
+        owner = self.board.board[i,j]['owner']
+        if owner == 'nobody':
+          return False
+        else:
+          stats[owner] += 1
+    self.stats = stats
+    return True
+  
+
   def find_all_words(self):
     self.playable_words = {}
     prefixes = {}
@@ -201,7 +214,7 @@ class Cheaterpress(object):
     '''
 
     self.played_words = []
-
+    self.passes = 0
     self.initialize_wordlist(wordfile)
     self.instantiate_game(board)
     debug(self.board)
@@ -221,14 +234,15 @@ class Cheaterpress(object):
     self.player2 = player2(self,'player2')
     self.currentplayer = self.player1
     
-    pprint(sorted(self.playable_words.keys(),key=lambda x: 25 - len(x)))
-    while not self.board.game_over():
+    pprint(sorted(self.playable_words.keys(),key=lambda x:  len(x)))
+    while not self.game_over():
       print self.board
       next_move,word_choice = self.currentplayer.choose_next_move()
       self.board.play_word(self.currentplayer.name,next_move)
       self.played_words.append(word_choice)
       self.next()
-
+    print self.board
+    print self.stats
 
 if __name__ == '__main__':
   c = Cheaterpress('words.txt') # ,'FRPGBXTQMTPGRCBYKHSCZFXUA')
