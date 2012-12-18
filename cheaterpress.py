@@ -42,7 +42,7 @@ class Board(object):
     for tile in self.tiles():
       if tile['owner'] != 'nobody':
         scoreboard[tile['owner']] += 1
-    return scoreboard
+    return scoreboard.items()
 
   def test_play(self,player,spaces):
     testboard = deepcopy(self)
@@ -155,7 +155,7 @@ class AIPlayer(Player):
     best_plays = []
     allowed_words = filter(lambda x: x not in self.c.played_words,self.c.playable_words)
     allowed_words.sort(key=len,reverse=True)
-    for word in allowed_words[:100]:
+    for word in allowed_words[:1000]:
       alternatives = self.choose_spaces(word)
       for alternative in alternatives:
         testboard = self.c.board.test_play(self.name,alternative)
@@ -163,7 +163,7 @@ class AIPlayer(Player):
     best_plays.sort(key=lambda x: self.play_quality(x[0],x[1],x[2]),reverse=True)
     if len(best_plays) == 0:
       return None,None,None,None
-    print "playing %s" % best_plays[0][2]
+    print "%s playing %s" % (self.name,best_plays[0][2])
     return best_plays[0]
 
   def choose_spaces(self,playable_word,board=None):
@@ -202,13 +202,39 @@ class AIPlayer(Player):
     '''create a key for a sort function to compare the quality of diff
     moves (based on a Board object). this one attempts to maximize area owned,
     and breaks ties with num defended'''
-    quality = [0,0]
+    quality = [1,0,0]
     for square in board.board.values():
+      if square['owner'] == 'nobody':
+        quality[0]=0
       if square['owner'] == name:
-        quality[0] += 1
+        quality[1] += 1
         if square['defended'] == True:
-          quality[1] += 1
-    return quality[0] * 25 + quality[1]
+          quality[2] += 1
+    return quality[0]*25*25 + quality[1] * 25 + quality[1]
+
+
+ 
+class DefensePlayer(AIPlayer):
+  @staticmethod
+  def play_quality(board,name,word):
+    '''create a key for a sort function to compare the quality of diff moves
+    (based on a Board object). this one attempts to maximize area defended, and
+    breaks ties with num owned
+    
+    if a move can win the game it is automatically marked as a winner.
+    '''
+    quality = [1,0,0]
+    for square in board.board.values():
+      if square['owner'] == 'nobody':
+        quality[0]=0
+      if square['owner'] == name:
+        quality[1] += 1
+        if square['defended'] == True:
+          quality[2] += 1
+    return quality[0]*25*25 + quality[2] * 25 + quality[1]
+
+
+
 
 
 class Cheaterpress(object):
@@ -291,7 +317,7 @@ class Cheaterpress(object):
 
   def winner(self):
     stats = self.board.score()
-    return max(stats.items(),lambda x: x[1])[0]
+    return max(stats,key=lambda x: x[1])
 
   def next(self):
     self.currentplayer = self.players[len(self.played_words) % self.num_players]
@@ -311,8 +337,10 @@ class Cheaterpress(object):
         self.board.play_word(self.currentplayer.name,spaces)
         self.played_words.append(word_choice)
       self.next()
-    print self.winner(),'wins.'
+    print "game over"
+    print self.board
+    print "%s wins with %s points" % (self.winner()[0],self.winner()[1])
 
 if __name__ == '__main__':
   c = Cheaterpress('words.txt')
-  c.play((AIPlayer,AIPlayer))
+  c.play((AIPlayer,DefensePlayer))
