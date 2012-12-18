@@ -1,5 +1,5 @@
 from itertools import combinations
-import copy
+from copy import deepcopy
 from collections import defaultdict
 from pprint import pprint
 import random
@@ -34,7 +34,7 @@ class Board(object):
     hits = []
     for tile in self.tiles():
       if tile['letter'] == letter:
-        hits.append(tile['i'],tile['j'])
+        hits.append((tile['i'],tile['j']))
     return hits
   
   def score(self):
@@ -42,9 +42,10 @@ class Board(object):
     for tile in self.tiles():
       if tile['owner'] != 'nobody':
         scoreboard[tile['owner']] += 1
+    return scoreboard
 
   def test_play(self,player,spaces):
-    testboard = copy.deepcopy(self)
+    testboard = deepcopy(self)
     testboard.play_word(player,spaces)
     return testboard
 
@@ -147,18 +148,22 @@ class Player(object):
           except ValueError:
             continue
         this_move.append(choices[int(goodmove)])
-    return this_move,word_choice
+    return None,None,word_choice,this_move
       
 class AIPlayer(Player):
   def choose_next_move(self):
     best_plays = []
-    for word in self.c.playable_words:
-      if word not in self.c.played_words:
-        for alternative in self.choose_spaces(playable_word):
-          best_plays.append(alternative)
-    best_plays.sort(key=play_quality,reverse=True)
+    allowed_words = filter(lambda x: x not in self.c.played_words,self.c.playable_words)
+    allowed_words.sort(key=len,reverse=True)
+    for word in allowed_words[:100]:
+      alternatives = self.choose_spaces(word)
+      for alternative in alternatives:
+        testboard = self.c.board.test_play(self.name,alternative)
+        best_plays.append((testboard,self.name,word,alternative))
+    best_plays.sort(key=lambda x: self.play_quality(x[0],x[1],x[2]),reverse=True)
     if len(best_plays) == 0:
-      return None
+      return None,None,None,None
+    print "playing %s" % best_plays[0][2]
     return best_plays[0]
 
   def choose_spaces(self,playable_word,board=None):
@@ -166,24 +171,40 @@ class AIPlayer(Player):
       board = self.c.board
     '''for a given word, spit out all alternative play options
     as test_play boards for that word.'''
-    this_move = []
     freq_table = defaultdict(int)
-    alternative_subchoices = []
     for letter in playable_word:
       freq_table[letter] += 1
+    # each possible play is a list of letters, a_p_p
+    # is a list of these lists, and starts with one way to 
+    # play the chosen word.
+    all_possible_plays = [[]]
     for letter in freq_table.keys():
+      first = True
+      previous_moves = deepcopy(all_possible_plays)
       choices = board.find_letter_on_board(letter)
-      
+      for perm in combinations(choices,freq_table[letter]):
+        if first:
+          for play in all_possible_plays:
+            for choice in perm:
+              play.append(choice)
+          first = False
+        else:
+          newplays = deepcopy(previous_moves)
+          for play in newplays:
+            for choice in perm:
+              play.append(choice)
+          all_possible_plays.extend(newplays)
+    return all_possible_plays
 
 
   @staticmethod
-  def play_quality(next_board):
+  def play_quality(board,name,word):
     '''create a key for a sort function to compare the quality of diff
     moves (based on a Board object). this one attempts to maximize area owned,
     and breaks ties with num defended'''
     quality = [0,0]
-    for square in self.c.board.board.values():
-      if square['owner'] == self.name:
+    for square in board.board.values():
+      if square['owner'] == name:
         quality[0] += 1
         if square['defended'] == True:
           quality[1] += 1
@@ -246,7 +267,7 @@ class Cheaterpress(object):
     self.board = Board(boardstring)
 
 
-  def __init__(self,wordfile=None,board=None):
+  def __init__(self,wordfile='words.txt',board=None):
     '''initialize an individual game of letterpress. 
     
     wordfile gets read in if this is the first game instantiated
@@ -282,21 +303,16 @@ class Cheaterpress(object):
     # pprint(sorted(self.playable_words.keys(),key=lambda x:  len(x)))
     while not self.game_over():
       print self.board
-      next_move,word_choice = self.currentplayer.choose_next_move()
-      if next_move == None:
+      _,_,word_choice,spaces = self.currentplayer.choose_next_move()
+      if word_choice == None:
         self.passes += 1
       else:
         self.passes = 0
-        self.board.play_word(self.currentplayer.name,next_move)
+        self.board.play_word(self.currentplayer.name,spaces)
         self.played_words.append(word_choice)
       self.next()
     print self.winner(),'wins.'
 
 if __name__ == '__main__':
-  numwords = []
-  for i in range(500):
-    c = Cheaterpress('words.txt') # ,'FRPGBXTQMTPGRCBYKHSCZFXUA')
-    num = len(c.playable_words.keys())
-    print "%d possible words" % num
-    numwords.append(num)
-  print 'average: %10.2f, min: %10d, max: %10d' % (float(sum(numwords)/len(numwords)),min(numwords),max(numwords))
+  c = Cheaterpress('words.txt')
+  c.play((AIPlayer,AIPlayer))
