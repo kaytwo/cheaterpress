@@ -332,7 +332,7 @@ class Cheaterpress(object):
   def next(self):
     self.currentplayer = self.players[len(self.played_words) % self.num_players]
 
-  def play(self,players,playbyplay=True):
+  def play(self,players,playbyplay=False):
     def verbose(x):
       if playbyplay:
         print x
@@ -359,6 +359,10 @@ class Cheaterpress(object):
     verbose( "%(winner)s wins with %(winnerpoints)s points after %(numplays)d moves" % stats )
     return stats
 
+def playgame(players):
+  c = Cheaterpress()
+  return c.play(players)
+
 if __name__ == '__main__':
   c = Cheaterpress('words.txt')
-  c.play((AIPlayer,DefensePlayer))
+  playgame((DefensePlayer,AIPlayer))
