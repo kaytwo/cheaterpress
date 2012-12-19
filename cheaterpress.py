@@ -1,13 +1,12 @@
 from itertools import combinations
 from copy import deepcopy
-from collections import defaultdict
+from copy import copy
+from collections import defaultdict,OrderedDict
 from pprint import pprint
 import random
 import sys
 import time
 
-def debug(s):
-    print s
 
 isatty = sys.stdout.isatty()
 
@@ -123,9 +122,7 @@ class Player(object):
     while word_choice == '':
       choose = raw_input("what word do you want to play? ").upper()
       if choose not in self.c.playable_words:
-        print "that's not a word :("
-      elif choose in self.c.played_words:
-        print "that word has been played"
+        print "that's not a word that can be played :("
       else:
         word_choice = choose
     # remove ambiguity
@@ -153,9 +150,13 @@ class Player(object):
 class AIPlayer(Player):
   def choose_next_move(self):
     best_plays = []
-    allowed_words = filter(lambda x: x not in self.c.played_words,self.c.playable_words)
+    '''
+    optional: sort playable_words and prefix it to speed up move choice.
+    allowed_words = self.c.playable_words.keys()
     allowed_words.sort(key=len,reverse=True)
     for word in allowed_words[:1000]:
+    '''
+    for word in self.c.playable_words.keys():
       alternatives = self.choose_spaces(word)
       for alternative in alternatives:
         testboard = self.c.board.test_play(self.name,alternative)
@@ -163,7 +164,6 @@ class AIPlayer(Player):
     best_plays.sort(key=lambda x: self.play_quality(x[0],x[1],x[2]),reverse=True)
     if len(best_plays) == 0:
       return None,None,None,None
-    print "%s playing %s" % (self.name,best_plays[0][2])
     return best_plays[0]
 
   def choose_spaces(self,playable_word,board=None):
@@ -180,7 +180,7 @@ class AIPlayer(Player):
     all_possible_plays = [[]]
     for letter in freq_table.keys():
       first = True
-      previous_moves = deepcopy(all_possible_plays)
+      previous_moves = [list(x) for x in all_possible_plays]
       choices = board.find_letter_on_board(letter)
       for perm in combinations(choices,freq_table[letter]):
         if first:
@@ -189,7 +189,7 @@ class AIPlayer(Player):
               play.append(choice)
           first = False
         else:
-          newplays = deepcopy(previous_moves)
+          newplays = [list(x) for x in previous_moves]
           for play in newplays:
             for choice in perm:
               play.append(choice)
@@ -201,7 +201,11 @@ class AIPlayer(Player):
   def play_quality(board,name,word):
     '''create a key for a sort function to compare the quality of diff
     moves (based on a Board object). this one attempts to maximize area owned,
-    and breaks ties with num defended'''
+    and breaks ties with num defended
+    
+    the easiest way to write a sort function is to assign an integer score
+    where higher values are better plays.
+    '''
     quality = [1,0,0]
     for square in board.board.values():
       if square['owner'] == 'nobody':
@@ -243,9 +247,13 @@ class Cheaterpress(object):
 
   @classmethod
   def initialize_wordlist(cls,wordfile):
+    '''wordlist is assumed to be sorted in longest -> shrotest order,
+    which guarantees (when used with an OrderedDict) that prefixes
+    will all be discarded during the find_all_words phase.
+    '''
     assert cls.words or wordfile
     if cls.words is None:
-      cls.words = {}
+      cls.words = OrderedDict()
       with open(wordfile) as f:
         for line in f.readlines():
           cls.words[line.strip()] = True
@@ -258,6 +266,9 @@ class Cheaterpress(object):
         return False
     return True
   
+  def playable_words(self):
+    return filter(lambda x: x not in self.played_words,self.playable_words)
+
 
   def find_all_words(self):
     self.playable_words = {}
@@ -309,11 +320,10 @@ class Cheaterpress(object):
     self.passes = 0
     self.initialize_wordlist(wordfile)
     self.instantiate_game(board)
-    # debug(self.board)
     t1 = time.time()
     self.find_all_words()
     t2 = time.time()
-    # debug('found %d possible words in %.2f seconds' % (len(self.playable_words.keys()),t2-t1))
+    # print  'found %d possible words in %.2f seconds' % (len(self.playable_words.keys()),t2-t1)
 
   def winner(self):
     stats = self.board.score()
@@ -322,24 +332,32 @@ class Cheaterpress(object):
   def next(self):
     self.currentplayer = self.players[len(self.played_words) % self.num_players]
 
-  def play(self,players):
+  def play(self,players,playbyplay=True):
+    def verbose(x):
+      if playbyplay:
+        print x
     for playernum in range(len(players)):
       self.players.append(players[playernum](self,'player' + str(playernum)))
     self.currentplayer = self.players[0]
     # pprint(sorted(self.playable_words.keys(),key=lambda x:  len(x)))
     while not self.game_over():
-      print self.board
+      verbose(self.board)
       _,_,word_choice,spaces = self.currentplayer.choose_next_move()
       if word_choice == None:
+        verbose("%s passes" % self.currentplayer.name)
         self.passes += 1
       else:
         self.passes = 0
         self.board.play_word(self.currentplayer.name,spaces)
+        verbose("%s plays %s" % (self.currentplayer.name,word_choice))
         self.played_words.append(word_choice)
+        del self.playable_words[word_choice]
       self.next()
-    print "game over"
-    print self.board
-    print "%s wins with %s points" % (self.winner()[0],self.winner()[1])
+    verbose( "game over")
+    verbose(str(self.board))
+    stats = {'winner':self.winner()[0],'winnerpoints':self.winner()[1],'won_by_passes':self.passes==2,'numplays':len(self.played_words)}
+    verbose( "%(winner)s wins with %(winnerpoints)s points after %(numplays)d moves" % stats )
+    return stats
 
 if __name__ == '__main__':
   c = Cheaterpress('words.txt')
