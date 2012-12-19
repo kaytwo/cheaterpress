@@ -6,12 +6,15 @@ from pprint import pprint
 import random
 import sys
 import time
+from multiprocessing import Pool
 
 
 isatty = sys.stdout.isatty()
 
 class Board(object):
-  def __init__(self,boardstring):
+  def __init__(self,boardstring,playernames):
+    self.playernames = playernames
+    print "player1 is %s player2 is %s" % (playernames[0],playernames[1])
     self.board = {}
     
     for i in range(5):
@@ -101,7 +104,7 @@ class Board(object):
     ctr = 0
     for tile in self.tiles():
       if  isatty and tile['owner'] != 'nobody':
-        fmtstr = self.hilite(tile['owner'] == 'player1',
+        fmtstr = self.hilite(tile['owner'] == self.playernames[0],
                         tile['defended'])
       else:
         fmtstr = '%s'
@@ -112,9 +115,9 @@ class Board(object):
     return ''.join(s)
 
 class Player(object):
-  def __init__(self,c,name):
+  def __init__(self,c):
     self.c = c
-    self.name = name
+    self.name = self.__class__.__name__
 
   def choose_next_move(self):
     ''' simple interactive move chooser, sublcass Player to write an AI '''
@@ -294,17 +297,17 @@ class Cheaterpress(object):
         self.playable_words[word] = True
 
   
-  def instantiate_game(self,boardstring):
+  def instantiate_game(self,boardstring,playernames):
     if boardstring is None:
       choices = []
       for i in range(25):
         choices.append(random.choice(Cheaterpress.letters))
       boardstring = ''.join(choices)
     self.boardstring = boardstring
-    self.board = Board(boardstring)
+    self.board = Board(boardstring,playernames)
 
 
-  def __init__(self,wordfile='words.txt',board=None):
+  def __init__(self,wordfile='words.txt',players=[],board=None):
     '''initialize an individual game of letterpress. 
     
     wordfile gets read in if this is the first game instantiated
@@ -319,7 +322,9 @@ class Cheaterpress(object):
     self.played_words = []
     self.passes = 0
     self.initialize_wordlist(wordfile)
-    self.instantiate_game(board)
+    for player in players:
+      self.players.append(player(self))
+    self.instantiate_game(board,[player.__class__.__name__ for player in self.players])
     t1 = time.time()
     self.find_all_words()
     t2 = time.time()
@@ -332,12 +337,10 @@ class Cheaterpress(object):
   def next(self):
     self.currentplayer = self.players[len(self.played_words) % self.num_players]
 
-  def play(self,players,playbyplay=False):
+  def play(self,playbyplay=False):
     def verbose(x):
       if playbyplay:
         print x
-    for playernum in range(len(players)):
-      self.players.append(players[playernum](self,'player' + str(playernum)))
     self.currentplayer = self.players[0]
     # pprint(sorted(self.playable_words.keys(),key=lambda x:  len(x)))
     while not self.game_over():
@@ -355,14 +358,17 @@ class Cheaterpress(object):
       self.next()
     verbose( "game over")
     verbose(str(self.board))
-    stats = {'winner':self.winner()[0],'winnerpoints':self.winner()[1],'won_by_passes':self.passes==2,'numplays':len(self.played_words)}
+    stats = {'winner':self.winner()['name'],'winnerpoints':self.winner()[1],'won_by_passes':self.passes==2,'numplays':len(self.played_words)}
     verbose( "%(winner)s wins with %(winnerpoints)s points after %(numplays)d moves" % stats )
     return stats
 
 def playgame(players):
-  c = Cheaterpress()
-  return c.play(players)
+  random.shuffle(players)
+  c = Cheaterpress('words.txt',players)
+  return c.play(playbyplay=True)
 
 if __name__ == '__main__':
-  c = Cheaterpress('words.txt')
-  playgame((DefensePlayer,AIPlayer))
+  todays_players = [AIPlayer,DefensePlayer]
+  pool = Pool(processes = 4)
+  pprint(pool.map(playgame,[todays_players for x in range(10)]))
+  # pprint(playgame((DefensePlayer,AIPlayer)))
