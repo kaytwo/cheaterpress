@@ -364,13 +364,13 @@ class Cheaterpress(object):
 
 def playgame(players):
   random.shuffle(players)
-  c = Cheaterpress('words.txt',players)
-  return c.play()
+  c = Cheaterpress('words.txt',players,board='BVKDZBZUJSTVGZYVPMLHSLSTE')
+  return c.play(playbyplay=True)
 
 if __name__ == '__main__':
   todays_players = [AIPlayer,DefensePlayer]
   pool = Pool(processes = 4)
+  pprint(playgame(todays_players))
   # pprint(playgame(todays_players))
-  # pprint(playgame(todays_players))
-  pprint(pool.map(playgame,[todays_players for x in range(10)]))
+  # pprint(pool.map(playgame,[todays_players for x in range(10)]))
   # pprint(playgame((DefensePlayer,AIPlayer)))
