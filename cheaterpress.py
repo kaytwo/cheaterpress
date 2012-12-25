@@ -170,7 +170,7 @@ class AIPlayer(Player):
     for word in allowed_words[:1000]:
     '''
     for word in self.c.playable_words.keys():
-      alternatives = self.choose_spaces(word)
+      alternatives = self.c.playable_words[word]
       for alternative in alternatives:
         testboard = self.c.board.test_play(self.name,alternative)
         best_plays.append((testboard,self.name,word,alternative))
@@ -178,37 +178,6 @@ class AIPlayer(Player):
     if len(best_plays) == 0:
       return None,None,None,None
     return best_plays[0]
-
-  def choose_spaces(self,playable_word,board=None):
-    if board is None:
-      board = self.c.board
-    '''for a given word, spit out all alternative play options
-    as test_play boards for that word.'''
-    freq_table = defaultdict(int)
-    for letter in playable_word:
-      freq_table[letter] += 1
-    # each possible play is a list of letters, a_p_p
-    # is a list of these lists, and starts with one way to 
-    # play the chosen word.
-    all_possible_plays = [[]]
-    for letter in freq_table.keys():
-      first = True
-      previous_moves = [list(x) for x in all_possible_plays]
-      choices = board.find_letter_on_board(letter)
-      for perm in combinations(choices,freq_table[letter]):
-        if first:
-          for play in all_possible_plays:
-            for choice in perm:
-              play.append(choice)
-          first = False
-        else:
-          newplays = [list(x) for x in previous_moves]
-          for play in newplays:
-            for choice in perm:
-              play.append(choice)
-          all_possible_plays.extend(newplays)
-    return all_possible_plays
-
 
   @staticmethod
   def play_quality(board,name,word):
@@ -304,7 +273,38 @@ class Cheaterpress(object):
           testprefix = word[:p]
           if testprefix in self.words and testprefix not in prefixes:
             prefixes[word[:p]] = True
-        self.playable_words[word] = True
+        alternative_spellings = self.choose_spaces(word)
+        self.playable_words[word] = alternative_spellings
+
+  def choose_spaces(self,playable_word):
+    '''for a given word, spit out all alternative play options
+    as test_play boards for that word.'''
+    freq_table = defaultdict(int)
+    for letter in playable_word:
+      freq_table[letter] += 1
+    # each possible play is a list of letters, a_p_p
+    # is a list of these lists, and starts with one way to 
+    # play the chosen word, which is guaranteed if the
+    # word was found to be playable
+    all_possible_plays = [[]]
+    for letter in freq_table.keys():
+      first = True
+      previous_moves = [list(x) for x in all_possible_plays]
+      choices = self.board.find_letter_on_board(letter)
+      for perm in combinations(choices,freq_table[letter]):
+        if first:
+          for play in all_possible_plays:
+            for choice in perm:
+              play.append(choice)
+          first = False
+        else:
+          newplays = [list(x) for x in previous_moves]
+          for play in newplays:
+            for choice in perm:
+              play.append(choice)
+          all_possible_plays.extend(newplays)
+    return all_possible_plays
+
 
   
   def instantiate_game(self,boardstring,playernames):
@@ -374,13 +374,13 @@ class Cheaterpress(object):
 
 def playgame(players):
   random.shuffle(players)
-  c = Cheaterpress('words.txt',players) # ,board='BVKDZBZUJSTVGZYVPMLHSLSTE')
+  c = Cheaterpress('words.txt',players,board='BVKDZBZUJSTVGZYVPMLHSLSTE')
   return c.play()
 
 if __name__ == '__main__':
   todays_players = [AIPlayer,DefensePlayer]
-  pool = Pool(processes = 4)
-  # pprint(playgame(todays_players))
-  gameresults = pool.map(playgame,[todays_players for x in range(200)])
+  # pool = Pool(processes = 4)
+  pprint(playgame(todays_players))
+  # gameresults = pool.map(playgame,[todays_players for x in range(200)])
   # pprint(playgame((DefensePlayer,AIPlayer)))
-  pprint(gameresults) 
+  # pprint(gameresults) 
