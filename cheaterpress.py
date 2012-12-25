@@ -14,7 +14,6 @@ isatty = sys.stdout.isatty()
 class Board(object):
   def __init__(self,boardstring,playernames):
     self.playernames = playernames
-    print "player1 is %s player2 is %s" % (playernames[0],playernames[1])
     self.board = {}
     
     for i in range(5):
@@ -259,7 +258,13 @@ class Cheaterpress(object):
       cls.words = OrderedDict()
       with open(wordfile) as f:
         for line in f.readlines():
-          cls.words[line.strip()] = True
+          word = list(line.strip())
+          word.sort()
+          wordkey = ''.join(word)
+          if wordkey in cls.words:
+            cls.words[wordkey].append(line.strip())
+          else:
+            cls.words[wordkey] = [line.strip(),]
  
   def game_over(self):
     if self.passes == 2:
@@ -269,16 +274,16 @@ class Cheaterpress(object):
         return False
     return True
   
-  def playable_words(self):
-    return filter(lambda x: x not in self.played_words,self.playable_words)
-
-
   def find_all_words(self):
     self.playable_words = {}
     prefixes = {}
     assert hasattr(self,'board')
     for word in self.words.keys():
-      if word in prefixes:
+      realwords = list()
+      for realword in self.words[word]:
+        if realword not in prefixes:
+          realwords.append(realword)
+      if len(realwords) == 0:
         continue
       remaining_letters = list(self.boardstring)
       found = True
@@ -289,12 +294,13 @@ class Cheaterpress(object):
           found = False
           break
       if found:
-        # assume a prefix will never be considered
-        for p in range(len(word)):
-          testprefix = word[:p]
-          if testprefix in self.words and testprefix not in prefixes:
-            prefixes[word[:p]] = True
-        self.playable_words[word] = True
+        for realword in realwords:
+          # assume a prefix will never be considered
+          for p in range(len(realword)):
+            testprefix = realword[:p]
+            if testprefix in self.words and testprefix not in prefixes:
+              prefixes[realword[:p]] = True
+        self.playable_words[word] = realwords
 
   
   def instantiate_game(self,boardstring,playernames):
@@ -342,7 +348,6 @@ class Cheaterpress(object):
       if playbyplay:
         print x
     self.currentplayer = self.players[0]
-    # pprint(sorted(self.playable_words.keys(),key=lambda x:  len(x)))
     while not self.game_over():
       verbose(self.board)
       _,_,word_choice,spaces = self.currentplayer.choose_next_move()
@@ -352,9 +357,11 @@ class Cheaterpress(object):
       else:
         self.passes = 0
         self.board.play_word(self.currentplayer.name,spaces)
-        verbose("%s plays %s" % (self.currentplayer.name,word_choice))
-        self.played_words.append(word_choice)
-        del self.playable_words[word_choice]
+        actual_word = self.playable_words[word_choice].pop()
+        if len(self.playable_words[word_choice]) == 0:
+          del self.playable_words[word_choice]
+        verbose("%s plays %s" % (self.currentplayer.name,actual_word))
+        self.played_words.append(actual_word)
       self.next()
     verbose( "game over")
     verbose(str(self.board))
@@ -365,12 +372,10 @@ class Cheaterpress(object):
 def playgame(players):
   random.shuffle(players)
   c = Cheaterpress('words.txt',players)
-  return c.play()
+  return c.play(playbyplay=True)
 
 if __name__ == '__main__':
   todays_players = [AIPlayer,DefensePlayer]
-  pool = Pool(processes = 4)
-  # pprint(playgame(todays_players))
-  # pprint(playgame(todays_players))
-  pprint(pool.map(playgame,[todays_players for x in range(10)]))
-  # pprint(playgame((DefensePlayer,AIPlayer)))
+  # pool = Pool(processes = 4)
+  # pprint(pool.map(playgame,[todays_players for x in range(5)]))
+  pprint(playgame(todays_players))
