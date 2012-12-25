@@ -47,17 +47,23 @@ class Board(object):
     return scoreboard
 
   def test_play(self,player,spaces):
-    testboard = deepcopy(self)
-    testboard.play_word(player,spaces)
+    testboard = {}
+    for item in self.board.keys():
+      testboard[item] = self.board[item].copy()
+    self.play_word(player,spaces,testboard)
     return testboard
 
-  def play_word(self,player,spaces):
+  def play_word(self,player,spaces,testboard=None):
+    if testboard:
+      b = testboard
+    else:
+      b = self.board
     for x,y in spaces:
-      space = self.board[x,y]
+      space = b[x,y]
       if space['owner'] != player and space['defended'] == False:
-        self.board[x,y]['owner'] = player
+        b[x,y]['owner'] = player
     # update defense status
-    for tile in self.tiles():
+    for tile in b.values():
       i = tile['i']
       j = tile['j']
       owner = tile['owner']
@@ -66,24 +72,24 @@ class Board(object):
       # top row
       if i == 0:
         pass
-      elif self.board[i-1,j]['owner'] != owner:
+      elif b[i-1,j]['owner'] != owner:
           tile['defended'] = False
           continue
       # bottom row
       if i == 4:
         pass
-      elif self.board[i+1,j]['owner'] != owner:
+      elif b[i+1,j]['owner'] != owner:
         tile['defended'] = False
         continue
       # left column
       if j == 0:
         pass
-      elif self.board[i,j-1]['owner'] != owner:
+      elif b[i,j-1]['owner'] != owner:
         tile['defended'] = False
         continue
       if j == 4:
         pass
-      elif self.board[i,j+1]['owner'] != owner:
+      elif b[i,j+1]['owner'] != owner:
         tile['defended'] = False
         continue
       tile['defended'] = True
@@ -210,7 +216,7 @@ class AIPlayer(Player):
     where higher values are better plays.
     '''
     quality = [1,0,0]
-    for square in board.board.values():
+    for square in board.values():
       if square['owner'] == 'nobody':
         quality[0]=0
       if square['owner'] == name:
@@ -231,7 +237,7 @@ class DefensePlayer(AIPlayer):
     if a move can win the game it is automatically marked as a winner.
     '''
     quality = [1,0,0]
-    for square in board.board.values():
+    for square in board.values():
       if square['owner'] == 'nobody':
         quality[0]=0
       if square['owner'] == name:
