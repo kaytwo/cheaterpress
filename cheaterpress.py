@@ -7,7 +7,7 @@ import random
 import sys
 import time
 from multiprocessing import Pool
-
+import operator
 
 isatty = sys.stdout.isatty()
 
@@ -44,7 +44,7 @@ class Board(object):
     for tile in self.tiles():
       if tile['owner'] != 'nobody':
         scoreboard[tile['owner']] += 1
-    return scoreboard.items()
+    return scoreboard
 
   def test_play(self,player,spaces):
     testboard = deepcopy(self)
@@ -332,7 +332,7 @@ class Cheaterpress(object):
 
   def winner(self):
     stats = self.board.score()
-    return max(stats,key=lambda x: x[1])
+    return max(stats.iteritems(),key=operator.itemgetter(1))
 
   def next(self):
     self.currentplayer = self.players[len(self.played_words) % self.num_players]
@@ -358,17 +358,19 @@ class Cheaterpress(object):
       self.next()
     verbose( "game over")
     verbose(str(self.board))
-    stats = {'winner':self.winner()['name'],'winnerpoints':self.winner()[1],'won_by_passes':self.passes==2,'numplays':len(self.played_words)}
+    stats = {'winner':self.winner()[0],'winnerpoints':self.winner()[1],'won_by_passes':self.passes==2,'numplays':len(self.played_words)}
     verbose( "%(winner)s wins with %(winnerpoints)s points after %(numplays)d moves" % stats )
     return stats
 
 def playgame(players):
   random.shuffle(players)
   c = Cheaterpress('words.txt',players)
-  return c.play(playbyplay=True)
+  return c.play()
 
 if __name__ == '__main__':
   todays_players = [AIPlayer,DefensePlayer]
   pool = Pool(processes = 4)
+  # pprint(playgame(todays_players))
+  # pprint(playgame(todays_players))
   pprint(pool.map(playgame,[todays_players for x in range(10)]))
   # pprint(playgame((DefensePlayer,AIPlayer)))
