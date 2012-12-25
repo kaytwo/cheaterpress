@@ -28,20 +28,24 @@ class Board(object):
             }
 
   def tiles(self):
+    '''
+    tiles is only needed for "in order" traversal,
+    i.e. for printing out a board string
+    '''
     for i in range(5):
       for j in range(5):
         yield self.board[i,j]
   
   def find_letter_on_board(self,letter):
     hits = []
-    for tile in self.tiles():
+    for tile in self.board.values():
       if tile['letter'] == letter:
         hits.append((tile['i'],tile['j']))
     return hits
   
   def score(self):
     scoreboard = defaultdict(int)
-    for tile in self.tiles():
+    for tile in self.board.values():
       if tile['owner'] != 'nobody':
         scoreboard[tile['owner']] += 1
     return scoreboard
@@ -270,7 +274,7 @@ class Cheaterpress(object):
   def game_over(self):
     if self.passes == 2:
       return True
-    for tile in self.board.tiles():
+    for tile in self.board.board.values():
       if tile['owner'] == 'nobody':
         return False
     return True
@@ -370,13 +374,13 @@ class Cheaterpress(object):
 
 def playgame(players):
   random.shuffle(players)
-  c = Cheaterpress('words.txt',players,board='BVKDZBZUJSTVGZYVPMLHSLSTE')
-  return c.play(playbyplay=True)
+  c = Cheaterpress('words.txt',players) # ,board='BVKDZBZUJSTVGZYVPMLHSLSTE')
+  return c.play()
 
 if __name__ == '__main__':
   todays_players = [AIPlayer,DefensePlayer]
   pool = Pool(processes = 4)
-  pprint(playgame(todays_players))
   # pprint(playgame(todays_players))
-  # pprint(pool.map(playgame,[todays_players for x in range(10)]))
+  gameresults = pool.map(playgame,[todays_players for x in range(200)])
   # pprint(playgame((DefensePlayer,AIPlayer)))
+  pprint(gameresults) 
