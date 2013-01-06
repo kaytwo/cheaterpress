@@ -175,6 +175,7 @@ class AIPlayer(Player):
         testboard = self.c.board.test_play(self.name,alternative)
         best_plays.append((testboard,self.name,word,alternative))
     best_plays.sort(key=lambda x: self.play_quality(x[0],x[1],x[2]),reverse=True)
+    # pprint([self.play_quality(x[0],x[1],x[2]) for x in best_plays[:50]])
     if len(best_plays) == 0:
       return None,None,None,None
     return best_plays[0]
@@ -372,15 +373,15 @@ class Cheaterpress(object):
     verbose( "%(winner)s wins with %(winnerpoints)s points after %(numplays)d moves" % stats )
     return stats
 
-def playgame(players):
+def playgame(players,verbose=False):
   random.shuffle(players)
-  c = Cheaterpress('words.txt',players,board='BVKDZBZUJSTVGZYVPMLHSLSTE')
-  return c.play()
+  c = Cheaterpress('words.txt',players ,board='BVKDZBZUJSTVGZYVPMLHSLSTE')
+  return c.play(playbyplay=verbose)
 
 if __name__ == '__main__':
   todays_players = [AIPlayer,DefensePlayer]
   # pool = Pool(processes = 4)
-  pprint(playgame(todays_players))
+  pprint(playgame(todays_players,verbose=True))
   # gameresults = pool.map(playgame,[todays_players for x in range(200)])
   # pprint(playgame((DefensePlayer,AIPlayer)))
   # pprint(gameresults) 

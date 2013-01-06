@@ -55,3 +55,8 @@ timing with deepcopy removed, 12/25/2012:
 real  0m15.459s
 user  0m14.435s
 sys 0m1.357s
+
+timing with alternative choice refactored to once per game, 12/25/2012:
+real  0m9.470s
+user  0m8.755s
+sys 0m0.711s
