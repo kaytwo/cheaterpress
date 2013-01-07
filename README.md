@@ -60,3 +60,8 @@ timing with alternative choice refactored to once per game, 12/25/2012:
 real  0m9.470s
 user  0m8.755s
 sys 0m0.711s
+
+timing with equivalent words grouped together, 1/6/2013
+real  0m8.738s
+user  0m8.166s
+sys 0m0.567s

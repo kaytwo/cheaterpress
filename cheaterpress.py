@@ -169,11 +169,11 @@ class AIPlayer(Player):
     allowed_words.sort(key=len,reverse=True)
     for word in allowed_words[:1000]:
     '''
-    for word in self.c.playable_words.keys():
-      alternatives = self.c.playable_words[word]
+    for wordkey in self.c.playable_words.keys():
+      alternatives = self.c.playable_words[wordkey]['alternative_placements']
       for alternative in alternatives:
         testboard = self.c.board.test_play(self.name,alternative)
-        best_plays.append((testboard,self.name,word,alternative))
+        best_plays.append((testboard,self.name,wordkey,alternative))
     best_plays.sort(key=lambda x: self.play_quality(x[0],x[1],x[2]),reverse=True)
     # pprint([self.play_quality(x[0],x[1],x[2]) for x in best_plays[:50]])
     if len(best_plays) == 0:
@@ -249,16 +249,18 @@ class Cheaterpress(object):
         return False
     return True
   
-  def playable_words(self):
-    return filter(lambda x: x not in self.played_words,self.playable_words)
-
-
   def find_all_words(self):
     self.playable_words = {}
     prefixes = {}
     assert hasattr(self,'board')
     for word in self.words.keys():
       if word in prefixes:
+        continue
+      wordkey = list(word)
+      wordkey.sort()
+      wordkey = ''.join(wordkey)
+      if wordkey in self.playable_words:
+        self.playable_words[wordkey]['alternative_spellings'].append(word)
         continue
       remaining_letters = list(self.boardstring)
       found = True
@@ -274,8 +276,9 @@ class Cheaterpress(object):
           testprefix = word[:p]
           if testprefix in self.words and testprefix not in prefixes:
             prefixes[word[:p]] = True
-        alternative_spellings = self.choose_spaces(word)
-        self.playable_words[word] = alternative_spellings
+        alternative_placements = self.choose_spaces(word)
+        self.playable_words[wordkey] = {'alternative_placements':alternative_placements, 'alternative_spellings':[word]}
+        # self.playable_words[word] = alternative_spellings
 
   def choose_spaces(self,playable_word):
     '''for a given word, spit out all alternative play options
@@ -356,16 +359,18 @@ class Cheaterpress(object):
     # pprint(sorted(self.playable_words.keys(),key=lambda x:  len(x)))
     while not self.game_over():
       verbose(self.board)
-      _,_,word_choice,spaces = self.currentplayer.choose_next_move()
-      if word_choice == None:
+      _,_,word_choice_key,spaces = self.currentplayer.choose_next_move()
+      if word_choice_key == None:
         verbose("%s passes" % self.currentplayer.name)
         self.passes += 1
       else:
+        word_choice = self.playable_words[word_choice_key]['alternative_spellings'].pop()
         self.passes = 0
         self.board.play_word(self.currentplayer.name,spaces)
         verbose("%s plays %s" % (self.currentplayer.name,word_choice))
         self.played_words.append(word_choice)
-        del self.playable_words[word_choice]
+        if len(self.playable_words[word_choice_key]['alternative_spellings']) == 0:
+          del self.playable_words[word_choice_key]
       self.next()
     verbose( "game over")
     verbose(str(self.board))
@@ -381,7 +386,7 @@ def playgame(players,verbose=False):
 if __name__ == '__main__':
   todays_players = [AIPlayer,DefensePlayer]
   # pool = Pool(processes = 4)
-  pprint(playgame(todays_players,verbose=True))
+  pprint(playgame(todays_players,verbose=False))
   # gameresults = pool.map(playgame,[todays_players for x in range(200)])
   # pprint(playgame((DefensePlayer,AIPlayer)))
   # pprint(gameresults) 
